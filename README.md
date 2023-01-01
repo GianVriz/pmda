@@ -5,7 +5,7 @@ First, we create an environment called *pmda* using *Anaconda Prompt (Anaconda3)
 ```
 conda create -n pmda python=3.6.7
 ```
-We need to activate the environment in order to install some libraries:
+We need to activate the environment in order to install the required libraries:
 ```
 conda activate pmda
 conda install -c anaconda git
@@ -14,11 +14,11 @@ ipython kernel install --user --name=pmda
 ```
 **remark:** the last two commands allows us to create notebooks which use *pmda* environment instead of the base one.
 
-Then, we install all the required libraries specified in `requirements.txt`:
+Then, we install the libraries specified in `requirements.txt`:
 ```
 pip install -r requirements.txt
 ```
-Then, we Install `pytorch` and `torchvision`:
+Then, we install `pytorch` and `torchvision`:
 ```
 conda install pytorch==1.2.0 torchvision==0.4.0 -c pytorch
 ```
@@ -47,7 +47,7 @@ The core of the project is `main.ipynb`, which allows to pre-process and analyse
 
 The repository also includes the following folders:
 - *[docs](https://github.com/giovannitoto/pmda/tree/master/docs)* \
-  It contains pdf files of the four articles in which topic models are introduced.
+  It contains pdf files of the four articles in which the four topic models are introduced.
 
 - *[src/DETM](https://github.com/giovannitoto/pmda/tree/master/src/DETM)* \
   It contains the code that accompanies the paper titled "The Dynamic Embedded Topic Model" by Adji B. Dieng, Francisco J. R. Ruiz, and David M. Blei. \
