@@ -34,7 +34,7 @@ The core of the project is `main.ipynb`, which allows to pre-process and analyse
 
 1. Introduction
 2. Pre-processing of the corpus
-3. Explorative analysis of the processed corpus
+3. Exploratory analysis of the processed corpus
 4. Estimation of the topic models:
 	  1. Latent Dirichlet Allocation (LDA)
 	  2. Dynamic Topic Model (DTM)
@@ -47,15 +47,12 @@ The core of the project is `main.ipynb`, which allows to pre-process and analyse
 
 The repository also includes the following folders:
 - *[docs](https://github.com/giovannitoto/pmda/tree/master/docs)* \
-  It contains pdf files of the four articles in which the four topic models are introduced.
+  It contains pdf files of the four articles in which the topic models are introduced.
 
-- *[src/DETM](https://github.com/giovannitoto/pmda/tree/master/src/DETM)* \
-  It contains the code that accompanies the paper titled "The Dynamic Embedded Topic Model" by Adji B. Dieng, Francisco J. R. Ruiz, and David M. Blei. \
-  Original GitHub repository: https://github.com/adjidieng/DETM.
-
-- *[src/ETM](https://github.com/giovannitoto/pmda/tree/master/src/ETM)* \
-	It contains the code that accompanies the paper titled "Topic Modeling in Embedding Spaces" by Adji B. Dieng, Francisco J. R. Ruiz, and David M. Blei. \
-  Original GitHub repository: https://github.com/adjidieng/ETM.
+- *[src](https://github.com/giovannitoto/pmda/tree/master/src)* \
+  It contains an adaptation of the code that accompanies the papers titled "The Dynamic Embedded Topic Model" and "Topic Modeling in Embedding Spaces" by Adji B. Dieng, Francisco J. R. Ruiz, and David M. Blei. \
+  First paper original GitHub repository: https://github.com/adjidieng/DETM. \
+	Second paper original GitHub repository: https://github.com/adjidieng/ETM.
 
 ## Usage
 Use `main.ipynb`!
