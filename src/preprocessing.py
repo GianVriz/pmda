@@ -140,6 +140,10 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
     docs_ts_h1 = [[w for i,w in enumerate(doc) if i<=len(doc)/2.0-1] for doc in docs_ts]
     docs_ts_h2 = [[w for i,w in enumerate(doc) if i>len(doc)/2.0-1] for doc in docs_ts]
 
+    # ----------------------------------------------------------------
+    # DOCUMENT PRE-PROCESSING ENDS HERE: NOW WE JUST HAVE TO SAVE THEM 
+    # ---------------------------------------------------------------- 
+    
     # Getting lists of words and doc_indices
     print('creating lists of words...')
 
@@ -177,20 +181,33 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
     print('  len(np.unique(doc_indices_ts_h2)): {} [this should be {}]'.format(len(np.unique(doc_indices_ts_h2)), len(docs_ts_h2)))
     print('  len(np.unique(doc_indices_va)): {} [this should be {}]'.format(len(np.unique(doc_indices_va)), len(docs_va)))
 
+    # Write raw texts of train/test/val set
+    with open(path_save + 'text_tr.txt', 'w') as f:
+        for doc in docs_tr:
+            f.write(' '.join([id2word[idx] for idx in doc]) + '\n')
+            
+    with open(path_save + 'text_ts.txt', 'w') as f:
+        for doc in docs_ts:
+            f.write(' '.join([id2word[idx] for idx in doc]) + '\n')
+            
+    with open(path_save + 'text_va.txt', 'w') as f:
+        for doc in docs_va:
+            f.write(' '.join([id2word[idx] for idx in doc]) + '\n')
+    
     # Number of documents in each set
     n_docs_tr = len(docs_tr)
     n_docs_ts = len(docs_ts)
     n_docs_ts_h1 = len(docs_ts_h1)
     n_docs_ts_h2 = len(docs_ts_h2)
     n_docs_va = len(docs_va)
-
+    
     # Remove unused variables
     del docs_tr
     del docs_ts
     del docs_ts_h1
     del docs_ts_h2
     del docs_va
-
+    
     # Create bow representation
     print('creating bow representation...')
 
@@ -213,43 +230,13 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
     del doc_indices_ts_h1
     del doc_indices_ts_h2
     del doc_indices_va
-
-    # --------------------------------
-    # Write files for LDA C++ code
-    def write_lda_file(filename, timestamps_in, time_list_in, bow_in):
-        idxSort = np.argsort(timestamps_in)
-
-        with open(filename, "w") as f:
-            for row in idxSort:
-                x = bow_in.getrow(row)
-                n_elems = x.count_nonzero()
-                f.write(str(n_elems))
-                if(n_elems != len(x.indices) or n_elems != len(x.data)):
-                    print("[ERR] THIS SHOULD NOT HAPPEN")
-                for ii, dd in zip(x.indices, x.data):
-                    f.write(' ' + str(ii) + ':' + str(dd))
-                f.write('\n')
-
-        with open(filename.replace("-mult", "-seq"), "w") as f:
-            f.write(str(len(time_list_in)) + '\n')
-            for idx_t, _ in enumerate(time_list_in):
-                n_elem = len([t for t in timestamps_in if t==idx_t])
-                f.write(str(n_elem) + '\n')
-
-    print('saving LDA files for C++ code...')
-    write_lda_file(path_save + 'dtm_tr-mult.dat', timestamps_tr, time_list, bow_tr)
-    write_lda_file(path_save + 'dtm_ts-mult.dat', timestamps_ts, time_list, bow_ts)
-    write_lda_file(path_save + 'dtm_ts_h1-mult.dat', timestamps_ts, time_list, bow_ts_h1)
-    write_lda_file(path_save + 'dtm_ts_h2-mult.dat', timestamps_ts, time_list, bow_ts_h2)
-    write_lda_file(path_save + 'dtm_va-mult.dat', timestamps_va, time_list, bow_va)
-    # --------------------------------
-
+            
     # Write the vocabulary and timestamps
-    with open(path_save + 'vocab.txt', "w") as f:
+    with open(path_save + 'vocab.txt', 'w') as f:
         for v in vocab:
             f.write(v + '\n')
 
-    with open(path_save + 'timestamps.txt', "w") as f:
+    with open(path_save + 'timestamps.txt', 'w') as f:
         for t in time_list:
             f.write(t + '\n')
 

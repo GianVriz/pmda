@@ -46,10 +46,9 @@ The core of the project is `main.ipynb`, which allows to pre-process and analyse
 6. Conclusions
 
 The repository also includes the following folders:
-- *[docs](https://github.com/giovannitoto/pmda/tree/master/docs)* \
+* *[docs](https://github.com/giovannitoto/pmda/tree/master/docs)* \
   It contains pdf files of the four articles in which the topic models are introduced.
-
-- *[src](https://github.com/giovannitoto/pmda/tree/master/src)* \
+* *[src](https://github.com/giovannitoto/pmda/tree/master/src)* \
   It contains an adaptation of the code that accompanies the papers titled "The Dynamic Embedded Topic Model" and "Topic Modeling in Embedding Spaces" by Adji B. Dieng, Francisco J. R. Ruiz, and David M. Blei. \
   First paper original GitHub repository: https://github.com/adjidieng/DETM. \
 	Second paper original GitHub repository: https://github.com/adjidieng/ETM.
@@ -57,13 +56,15 @@ The repository also includes the following folders:
 ## Usage
 Use `main.ipynb`!
 
+## Authors
+
+* Lorenzo Dell'Oro
+* Giovanni Toto - [giovannitoto](https://github.com/giovannitoto)
+* Gian Luca Vriz - [GianVriz](https://github.com/GianVriz)
 
 ## References
 
-- Blei, D. M., Ng, A. Y., & Jordan, M. I. (2003). Latent dirichlet allocation. Journal of machine Learning research, 3(Jan), 993-1022. [ACM Digital Library](https://dl.acm.org/doi/10.5555/944919.944937)
-
-- Blei, D. M., & Lafferty, J. D. (2006, June). Dynamic topic models. In Proceedings of the 23rd international conference on Machine learning (pp. 113-120). [ACM Digital Library](https://doi.org/10.1145/1143844.1143859)
-
-- Dieng, A. B., Ruiz, F. J., & Blei, D. M. (2019). The dynamic embedded topic model. arXiv preprint arXiv:1907.05545. [Arxiv link](https://arxiv.org/abs/1907.05545)
-
-- Dieng, A. B., Ruiz, F. J., & Blei, D. M. (2020). Topic modeling in embedding spaces. Transactions of the Association for Computational Linguistics, 8, 439-453. [ACM Anthology](https://aclanthology.org/2020.tacl-1.29/),  [Arxiv link](https://arxiv.org/abs/1907.04907)
+* Blei, D. M., Ng, A. Y., & Jordan, M. I. (2003). Latent dirichlet allocation. Journal of machine Learning research, 3(Jan), 993-1022. [ACM Digital Library](https://dl.acm.org/doi/10.5555/944919.944937)
+* Blei, D. M., & Lafferty, J. D. (2006, June). Dynamic topic models. In Proceedings of the 23rd international conference on Machine learning (pp. 113-120). [ACM Digital Library](https://doi.org/10.1145/1143844.1143859)
+* Dieng, A. B., Ruiz, F. J., & Blei, D. M. (2019). The dynamic embedded topic model. arXiv preprint arXiv:1907.05545. [Arxiv link](https://arxiv.org/abs/1907.05545)
+* Dieng, A. B., Ruiz, F. J., & Blei, D. M. (2020). Topic modeling in embedding spaces. Transactions of the Association for Computational Linguistics, 8, 439-453. [ACM Anthology](https://aclanthology.org/2020.tacl-1.29/),  [Arxiv link](https://arxiv.org/abs/1907.04907)
