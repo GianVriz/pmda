@@ -1,19 +1,18 @@
 import torch
-import torch.nn.functional as F 
-import numpy as np 
-import math 
-from data import get_batch
+import torch.nn.functional as F
+import numpy as np
+import math
+from .data import get_batch
 from pathlib import Path
-from gensim.models.fasttext import FastText as FT_gensim
-from utils import nearest_neighbors, get_topic_coherence, get_topic_diversity
+from .utils import nearest_neighbors, get_topic_coherence, get_topic_diversity
 
 from torch import nn, optim
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class ETM(nn.Module):
-    def __init__(self, num_topics, vocab_size, t_hidden_size, rho_size, emsize, 
-                    theta_act, embeddings=None, train_embeddings=True, enc_drop=0.5):
+    def __init__(self, num_topics, vocab_size, t_hidden_size, rho_size, emsize,
+                 theta_act, embeddings=None, train_embeddings=True, enc_drop=0.5):
         super(ETM, self).__init__()
 
         ## define hyperparameters
@@ -26,7 +25,7 @@ class ETM(nn.Module):
         self.t_drop = nn.Dropout(enc_drop)
 
         self.theta_act = self.get_activation(theta_act)
-        
+
         ## define the word embedding matrix \rho
         if train_embeddings:
             self.rho = nn.Linear(rho_size, vocab_size, bias=False)
@@ -37,11 +36,11 @@ class ETM(nn.Module):
 
         ## define the matrix containing the topic embeddings
         self.alphas = nn.Linear(rho_size, num_topics, bias=False)
-    
+
         ## define variational distribution for \theta_{1:D} via amortizartion
-        print(vocab_size, " THE Vocabulary size is here ")
+        print(vocab_size, " The Vocabulary size is here ")
         self.q_theta = nn.Sequential(
-                nn.Linear(vocab_size, t_hidden_size), 
+                nn.Linear(vocab_size, t_hidden_size),
                 self.theta_act,
                 nn.Linear(t_hidden_size, t_hidden_size),
                 self.theta_act,
@@ -69,13 +68,13 @@ class ETM(nn.Module):
         else:
             print('Defaulting to tanh activations...')
             act = nn.Tanh()
-        return act 
+        return act
 
     def reparameterize(self, mu, logvar):
         """Returns a sample from a Gaussian distribution via reparameterization.
         """
         if self.training:
-            std = torch.exp(0.5 * logvar) 
+            std = torch.exp(0.5 * logvar)
             eps = torch.randn_like(std)
             return eps.mul_(std).add_(mu)
         else:
@@ -115,7 +114,7 @@ class ETM(nn.Module):
         getting the topic poportion for the document passed in the normalixe bow or tf-idf"""
         mu_theta, logsigma_theta, kld_theta = self.encode(normalized_bows)
         z = self.reparameterize(mu_theta, logsigma_theta)
-        theta = F.softmax(z, dim=-1) 
+        theta = F.softmax(z, dim=-1)
         return theta, kld_theta
 
     def decode(self, theta, beta):
@@ -151,33 +150,33 @@ class ETM(nn.Module):
             recon_loss = recon_loss.mean()
         return recon_loss, kld_theta
 
-    def get_optimizer(self, args):
+    def get_optimizer(self, optimizer, lr, wdecay):
         """
-        Get the model default optimizer 
+        Get the model default optimizer
 
         Args:
             sefl ([type]): [description]
         """
-        if args.optimizer == 'adam':
-            optimizer = optim.Adam(self.parameters(), lr=args.lr, weight_decay=args.wdecay)
-        elif args.optimizer == 'adagrad':
-            optimizer = optim.Adagrad(self.parameters(), lr=args.lr, weight_decay=args.wdecay)
-        elif args.optimizer == 'adadelta':
-            optimizer = optim.Adadelta(self.parameters(), lr=args.lr, weight_decay=args.wdecay)
-        elif args.optimizer == 'rmsprop':
-            optimizer = optim.RMSprop(self.parameters(), lr=args.lr, weight_decay=args.wdecay)
-        elif args.optimizer == 'asgd':
-            optimizer = optim.ASGD(self.parameters(), lr=args.lr, t0=0, lambd=0., weight_decay=args.wdecay)
+        if optimizer == 'adam':
+            optimizer = optim.Adam(self.parameters(), lr=lr, weight_decay=wdecay)
+        elif optimizer == 'adagrad':
+            optimizer = optim.Adagrad(self.parameters(), lr=lr, weight_decay=wdecay)
+        elif optimizer == 'adadelta':
+            optimizer = optim.Adadelta(self.parameters(), lr=lr, weight_decay=wdecay)
+        elif optimizer == 'rmsprop':
+            optimizer = optim.RMSprop(self.parameters(), lr=lr, weight_decay=wdecay)
+        elif optimizer == 'asgd':
+            optimizer = optim.ASGD(self.parameters(), lr=lr, t0=0, lambd=0., weight_decay=wdecay)
         else:
             print('Defaulting to vanilla SGD')
-            optimizer = optim.SGD(self.parameters(), lr=args.lr)
+            optimizer = optim.SGD(self.parameters(), lr=lr)
         self.optimizer = optimizer
         return optimizer
 
 
-    def train_for_epoch(self, epoch, args, training_set):
+    def train_for_epoch(self, epoch, num_docs_train, batch_size, train_tokens, train_counts, vocab_size, bow_norm, clip, log_interval):
         """
-        train the model for the given epoch 
+        train the model for the given epoch
 
         Args:
             epoch ([type]): [description]
@@ -186,66 +185,65 @@ class ETM(nn.Module):
         acc_loss = 0
         acc_kl_theta_loss = 0
         cnt = 0
-        number_of_docs = torch.randperm(args.num_docs_train)
-        batch_indices = torch.split(number_of_docs, args.batch_size)
+        number_of_docs = torch.randperm(num_docs_train)
+        batch_indices = torch.split(number_of_docs, batch_size)
         print("The number of the indices I am using for the training is ", len(batch_indices))
         for idx, indices in enumerate(batch_indices):
             print("Running for ", idx)
             self.optimizer.zero_grad()
             self.zero_grad()
-            data_batch = get_batch(training_set, indices, device)
-            normalized_data_batch = data_batch
+            data_batch = get_batch(train_tokens, train_counts, indices, vocab_size, device)
+            if bow_norm:
+                sums = data_batch.sum(1).unsqueeze(1)
+                normalized_data_batch = data_batch / sums
+            else:
+                normalized_data_batch = data_batch
             recon_loss, kld_theta = self.forward(data_batch, normalized_data_batch)
             total_loss = recon_loss + kld_theta
             total_loss.backward()
-            if args.clip > 0:
-                torch.nn.utils.clip_grad_norm_(self.parameters(), args.clip)
+            if clip > 0:
+                torch.nn.utils.clip_grad_norm_(self.parameters(), clip)
             self.optimizer.step()
 
             acc_loss += torch.sum(recon_loss).item()
             acc_kl_theta_loss += torch.sum(kld_theta).item()
             cnt += 1
-            if idx % args.log_interval == 0 and idx > 0:
-                cur_loss = round(acc_loss / cnt, 2) 
-                cur_kl_theta = round(acc_kl_theta_loss / cnt, 2) 
+            if idx % log_interval == 0 and idx > 0:
+                cur_loss = round(acc_loss / cnt, 2)
+                cur_kl_theta = round(acc_kl_theta_loss / cnt, 2)
                 cur_real_loss = round(cur_loss + cur_kl_theta, 2)
 
                 print('Epoch: {} .. batch: {}/{} .. LR: {} .. KL_theta: {} .. Rec_loss: {} .. NELBO: {}'.format(
                     epoch, idx, len(indices), self.optimizer.param_groups[0]['lr'], cur_kl_theta, cur_loss, cur_real_loss))
 
-        cur_loss = round(acc_loss / cnt, 2) 
-        cur_kl_theta = round(acc_kl_theta_loss / cnt, 2) 
+        cur_loss = round(acc_loss / cnt, 2)
+        cur_kl_theta = round(acc_kl_theta_loss / cnt, 2)
         cur_real_loss = round(cur_loss + cur_kl_theta, 2)
         print('*'*100)
         print('Epoch----->{} .. LR: {} .. KL_theta: {} .. Rec_loss: {} .. NELBO: {}'.format(
                 epoch, self.optimizer.param_groups[0]['lr'], cur_kl_theta, cur_loss, cur_real_loss))
         print('*'*100)
 
-    
-    def visualize(self, args, vocabulary, show_emb=False):
+
+    def visualize(self, batch_size, epochs, num_words, vocabulary, show_emb=False):
         Path.cwd().joinpath("results").mkdir(parents=True, exist_ok=True)
         self.eval()
-        model_path = Path.home().joinpath("Projects", 
-                                        "Personal", 
-                                        "balobi_nini", 
-                                        'models', 
-                                        'embeddings_one_gram_fast_tweets_only').__str__()
-        model_gensim = FT_gensim.load(model_path)
-
-        # need to update this .. 
-        queries = ['felix', 'covid', 'pprd', '100jours', 'beni', 'adf', 'muyembe', 'fally']
+        # need to update this ..
+        #queries = ['andrew', 'computer', 'sports', 'religion', 'man', 'love',
+        #        'intelligence', 'money', 'politics', 'health', 'people', 'family']
+        queries = ['africa', 'republic']
 
         ## visualize topics using monte carlo
-        results_file_name = "topic_results_{}_{}.txt".format(args.batch_size, args.epochs)
+        results_file_name = "topic_results_{}_{}.txt".format(batch_size, epochs)
         results_file_name = Path.cwd().joinpath("results", results_file_name)
         with torch.no_grad():
             print('#'*100)
             print('Visualize topics...')
             topics_words = []
             gammas = self.get_beta()
-            for k in range(args.num_topics):
+            for k in range(self.num_topics):
                 gamma = gammas[k]
-                top_words = list(gamma.cpu().numpy().argsort()[-args.num_words+1:][::-1])
+                top_words = list(gamma.cpu().numpy().argsort()[-num_words+1:][::-1])
                 topic_words = [vocabulary[a].strip() for a in top_words]
                 topics_words.append(' '.join(topic_words))
                 with open(results_file_name, "a") as results_file:
@@ -264,44 +262,47 @@ class ETM(nn.Module):
                 neighbors = []
                 for word in queries:
                     print('word: {} .. neighbors: {}'.format(
-                        word, nearest_neighbors(model_gensim, word)))
+                        word, nearest_neighbors(word, embeddings, vocabulary, num_words)))
                 print('#'*100)
 
 
-    def evaluate(self, args, source, training_set, vocabulary , test_1, test_2, tc=False, td=False):
+    def evaluate(self, eval_batch_size, num_docs_valid, num_docs_test, num_docs_test_1, test_1_tokens, test_1_counts,
+                 test_2_tokens, test_2_counts, vocab, bow_norm, train_tokens, source, tc=False, td=False):
         """
         Compute perplexity on document completion.
         """
+        vocab_size = len(vocab)
+
         self.eval()
         with torch.no_grad():
             if source == 'val':
-                indices = torch.split(torch.tensor(range(args.num_docs_valid)), args.eval_batch_size)
-            else: 
-                indices = torch.split(torch.tensor(range(args.num_docs_test)), args.eval_batch_size)
-
+                indices = torch.split(torch.tensor(range(num_docs_valid)), eval_batch_size)
+            else:
+                indices = torch.split(torch.tensor(range(num_docs_test)), eval_batch_size)
             ## get \beta here
             beta = self.get_beta()
 
             ### do dc and tc here
             acc_loss = 0
             cnt = 0
-            indices_1 = torch.split(torch.tensor(range(args.num_docs_test_1)), args.eval_batch_size)
+            indices_1 = torch.split(torch.tensor(range(num_docs_test_1)), eval_batch_size)
             for idx, indice in enumerate(indices_1):
-                data_batch_1 = get_batch(test_1, indice, device)
+                data_batch_1 = get_batch(test_1_tokens, test_1_counts, indice, vocab_size, device)
                 sums_1 = data_batch_1.sum(1).unsqueeze(1)
-                if args.bow_norm:
+                if bow_norm:
                     normalized_data_batch_1 = data_batch_1 / sums_1
                 else:
                     normalized_data_batch_1 = data_batch_1
                 theta, _ = self.get_theta(normalized_data_batch_1)
                 ## get predition loss using second half
-                data_batch_2 = get_batch(test_2, indice, device)
+                data_batch_2 = get_batch(test_2_tokens, test_2_counts, indice, vocab_size, device)
                 sums_2 = data_batch_2.sum(1).unsqueeze(1)
                 res = torch.mm(theta, beta)
                 preds = torch.log(res)
                 recon_loss = -(preds * data_batch_2).sum(1)
+
                 loss = recon_loss / sums_2.squeeze()
-                loss = np.nanmean(loss.numpy())
+                loss = loss.mean().item()  # (*) loss = np.nanmean(loss.numpy())
                 acc_loss += loss
                 cnt += 1
             cur_loss = acc_loss / cnt
@@ -313,7 +314,7 @@ class ETM(nn.Module):
                 beta = beta.data.cpu().numpy()
                 if tc:
                     print('Computing topic coherence...')
-                    get_topic_coherence(beta, training_set, vocabulary)
+                    get_topic_coherence(beta, train_tokens, vocab)
                 if td:
                     print('Computing topic diversity...')
                     get_topic_diversity(beta, 25)

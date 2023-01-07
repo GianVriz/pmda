@@ -141,9 +141,9 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
     docs_ts_h2 = [[w for i,w in enumerate(doc) if i>len(doc)/2.0-1] for doc in docs_ts]
 
     # ----------------------------------------------------------------
-    # DOCUMENT PRE-PROCESSING ENDS HERE: NOW WE JUST HAVE TO SAVE THEM 
-    # ---------------------------------------------------------------- 
-    
+    # DOCUMENT PRE-PROCESSING ENDS HERE: NOW WE JUST HAVE TO SAVE THEM
+    # ----------------------------------------------------------------
+
     # Getting lists of words and doc_indices
     print('creating lists of words...')
 
@@ -185,29 +185,29 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
     with open(path_save + 'text_tr.txt', 'w') as f:
         for doc in docs_tr:
             f.write(' '.join([id2word[idx] for idx in doc]) + '\n')
-            
+
     with open(path_save + 'text_ts.txt', 'w') as f:
         for doc in docs_ts:
             f.write(' '.join([id2word[idx] for idx in doc]) + '\n')
-            
+
     with open(path_save + 'text_va.txt', 'w') as f:
         for doc in docs_va:
             f.write(' '.join([id2word[idx] for idx in doc]) + '\n')
-    
+
     # Number of documents in each set
     n_docs_tr = len(docs_tr)
     n_docs_ts = len(docs_ts)
     n_docs_ts_h1 = len(docs_ts_h1)
     n_docs_ts_h2 = len(docs_ts_h2)
     n_docs_va = len(docs_va)
-    
+
     # Remove unused variables
     del docs_tr
     del docs_ts
     del docs_ts_h1
     del docs_ts_h2
     del docs_va
-    
+
     # Create bow representation
     print('creating bow representation...')
 
@@ -230,7 +230,7 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
     del doc_indices_ts_h1
     del doc_indices_ts_h2
     del doc_indices_va
-            
+
     # Write the vocabulary and timestamps
     with open(path_save + 'vocab.txt', 'w') as f:
         for v in vocab:
@@ -248,9 +248,9 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
         pickle.dump(time_list, f)
 
     # Save timestamps alone
-    savemat(path_save + 'bow_tr_timestamps', {'timestamps': timestamps_tr}, do_compression=True)
-    savemat(path_save + 'bow_ts_timestamps', {'timestamps': timestamps_ts}, do_compression=True)
-    savemat(path_save + 'bow_va_timestamps', {'timestamps': timestamps_va}, do_compression=True)
+    savemat(path_save + 'bow_tr_timestamps.mat', {'timestamps': timestamps_tr}, do_compression=True)
+    savemat(path_save + 'bow_ts_timestamps.mat', {'timestamps': timestamps_ts}, do_compression=True)
+    savemat(path_save + 'bow_va_timestamps.mat', {'timestamps': timestamps_va}, do_compression=True)
 
     # Split bow intro token/value pairs
     print('splitting bow intro token/value pairs and saving to disk...')
@@ -261,36 +261,36 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
         return indices, counts
 
     bow_tr_tokens, bow_tr_counts = split_bow(bow_tr, n_docs_tr)
-    savemat(path_save + 'bow_tr_tokens', {'tokens': bow_tr_tokens}, do_compression=True)
-    savemat(path_save + 'bow_tr_counts', {'counts': bow_tr_counts}, do_compression=True)
+    savemat(path_save + 'bow_tr_tokens.mat', {'tokens': bow_tr_tokens}, do_compression=True)
+    savemat(path_save + 'bow_tr_counts.mat', {'counts': bow_tr_counts}, do_compression=True)
     del bow_tr
     del bow_tr_tokens
     del bow_tr_counts
 
     bow_ts_tokens, bow_ts_counts = split_bow(bow_ts, n_docs_ts)
-    savemat(path_save + 'bow_ts_tokens', {'tokens': bow_ts_tokens}, do_compression=True)
-    savemat(path_save + 'bow_ts_counts', {'counts': bow_ts_counts}, do_compression=True)
+    savemat(path_save + 'bow_ts_tokens.mat', {'tokens': bow_ts_tokens}, do_compression=True)
+    savemat(path_save + 'bow_ts_counts.mat', {'counts': bow_ts_counts}, do_compression=True)
     del bow_ts
     del bow_ts_tokens
     del bow_ts_counts
 
     bow_ts_h1_tokens, bow_ts_h1_counts = split_bow(bow_ts_h1, n_docs_ts_h1)
-    savemat(path_save + 'bow_ts_h1_tokens', {'tokens': bow_ts_h1_tokens}, do_compression=True)
-    savemat(path_save + 'bow_ts_h1_counts', {'counts': bow_ts_h1_counts}, do_compression=True)
+    savemat(path_save + 'bow_ts_h1_tokens.mat', {'tokens': bow_ts_h1_tokens}, do_compression=True)
+    savemat(path_save + 'bow_ts_h1_counts.mat', {'counts': bow_ts_h1_counts}, do_compression=True)
     del bow_ts_h1
     del bow_ts_h1_tokens
     del bow_ts_h1_counts
 
     bow_ts_h2_tokens, bow_ts_h2_counts = split_bow(bow_ts_h2, n_docs_ts_h2)
-    savemat(path_save + 'bow_ts_h2_tokens', {'tokens': bow_ts_h2_tokens}, do_compression=True)
-    savemat(path_save + 'bow_ts_h2_counts', {'counts': bow_ts_h2_counts}, do_compression=True)
+    savemat(path_save + 'bow_ts_h2_tokens.mat', {'tokens': bow_ts_h2_tokens}, do_compression=True)
+    savemat(path_save + 'bow_ts_h2_counts.mat', {'counts': bow_ts_h2_counts}, do_compression=True)
     del bow_ts_h2
     del bow_ts_h2_tokens
     del bow_ts_h2_counts
 
     bow_va_tokens, bow_va_counts = split_bow(bow_va, n_docs_va)
-    savemat(path_save + 'bow_va_tokens', {'tokens': bow_va_tokens}, do_compression=True)
-    savemat(path_save + 'bow_va_counts', {'counts': bow_va_counts}, do_compression=True)
+    savemat(path_save + 'bow_va_tokens.mat', {'tokens': bow_va_tokens}, do_compression=True)
+    savemat(path_save + 'bow_va_counts.mat', {'counts': bow_va_counts}, do_compression=True)
     del bow_va
     del bow_va_tokens
     del bow_va_counts

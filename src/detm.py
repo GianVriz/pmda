@@ -2,37 +2,39 @@
 """
 
 import torch
-import torch.nn.functional as F 
-import numpy as np 
-import math 
+import torch.nn.functional as F
+import numpy as np
+import math
 
-from torch import nn
+from torch import nn, optim
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class DETM(nn.Module):
-    def __init__(self, args, embeddings):
+    def __init__(self, num_topics, num_times, vocab_size, t_hidden_size, eta_hidden_size,
+                 rho_size, emb_size, enc_drop, eta_nlayers, delta, train_embeddings,
+                 theta_act, eta_dropout, embeddings):
         super(DETM, self).__init__()
 
         ## define hyperparameters
-        self.num_topics = args.num_topics
-        self.num_times = args.num_times
-        self.vocab_size = args.vocab_size
-        self.t_hidden_size = args.t_hidden_size
-        self.eta_hidden_size = args.eta_hidden_size
-        self.rho_size = args.rho_size
-        self.emsize = args.emb_size
-        self.enc_drop = args.enc_drop
-        self.eta_nlayers = args.eta_nlayers
-        self.t_drop = nn.Dropout(args.enc_drop)
-        self.delta = args.delta
-        self.train_embeddings = args.train_embeddings
+        self.num_topics = num_topics
+        self.num_times = num_times
+        self.vocab_size = vocab_size
+        self.t_hidden_size = t_hidden_size
+        self.eta_hidden_size = eta_hidden_size
+        self.rho_size = rho_size
+        self.emsize = emb_size
+        self.enc_drop = enc_drop
+        self.eta_nlayers = eta_nlayers
+        self.t_drop = nn.Dropout(enc_drop)
+        self.delta = delta
+        self.train_embeddings = train_embeddings
 
-        self.theta_act = self.get_activation(args.theta_act)
+        self.theta_act = self.get_activation(theta_act)
 
         ## define the word embedding matrix \rho
-        if args.train_embeddings:
-            self.rho = nn.Linear(args.rho_size, args.vocab_size, bias=False)
+        if train_embeddings:
+            self.rho = nn.Linear(rho_size, vocab_size, bias=False)
         else:
             num_embeddings, emsize = embeddings.size()
             rho = nn.Embedding(num_embeddings, emsize)
@@ -40,24 +42,24 @@ class DETM(nn.Module):
             self.rho = rho.weight.data.clone().float().to(device)
 
         ## define the variational parameters for the topic embeddings over time (alpha) ... alpha is K x T x L
-        self.mu_q_alpha = nn.Parameter(torch.randn(args.num_topics, args.num_times, args.rho_size))
-        self.logsigma_q_alpha = nn.Parameter(torch.randn(args.num_topics, args.num_times, args.rho_size))
-    
+        self.mu_q_alpha = nn.Parameter(torch.randn(num_topics, num_times, rho_size))
+        self.logsigma_q_alpha = nn.Parameter(torch.randn(num_topics, num_times, rho_size))
+
         ## define variational distribution for \theta_{1:D} via amortizartion... theta is K x D
         self.q_theta = nn.Sequential(
-                    nn.Linear(args.vocab_size+args.num_topics, args.t_hidden_size), 
+                    nn.Linear(vocab_size+num_topics, t_hidden_size),
                     self.theta_act,
-                    nn.Linear(args.t_hidden_size, args.t_hidden_size),
+                    nn.Linear(t_hidden_size, t_hidden_size),
                     self.theta_act,
                 )
-        self.mu_q_theta = nn.Linear(args.t_hidden_size, args.num_topics, bias=True)
-        self.logsigma_q_theta = nn.Linear(args.t_hidden_size, args.num_topics, bias=True)
+        self.mu_q_theta = nn.Linear(t_hidden_size, num_topics, bias=True)
+        self.logsigma_q_theta = nn.Linear(t_hidden_size, num_topics, bias=True)
 
         ## define variational distribution for \eta via amortizartion... eta is K x T
-        self.q_eta_map = nn.Linear(args.vocab_size, args.eta_hidden_size)
-        self.q_eta = nn.LSTM(args.eta_hidden_size, args.eta_hidden_size, args.eta_nlayers, dropout=args.eta_dropout)
-        self.mu_q_eta = nn.Linear(args.eta_hidden_size+args.num_topics, args.num_topics, bias=True)
-        self.logsigma_q_eta = nn.Linear(args.eta_hidden_size+args.num_topics, args.num_topics, bias=True)
+        self.q_eta_map = nn.Linear(vocab_size, eta_hidden_size)
+        self.q_eta = nn.LSTM(eta_hidden_size, eta_hidden_size, eta_nlayers, dropout=eta_dropout)
+        self.mu_q_eta = nn.Linear(eta_hidden_size+num_topics, num_topics, bias=True)
+        self.logsigma_q_eta = nn.Linear(eta_hidden_size+num_topics, num_topics, bias=True)
 
     def get_activation(self, act):
         if act == 'tanh':
@@ -79,13 +81,13 @@ class DETM(nn.Module):
         else:
             print('Defaulting to tanh activations...')
             act = nn.Tanh()
-        return act 
+        return act
 
     def reparameterize(self, mu, logvar):
         """Returns a sample from a Gaussian distribution via reparameterization.
         """
         if self.training:
-            std = torch.exp(0.5 * logvar) 
+            std = torch.exp(0.5 * logvar)
             eps = torch.randn_like(std)
             return eps.mul_(std).add_(mu)
         else:
@@ -115,8 +117,8 @@ class DETM(nn.Module):
         kl_0 = self.get_kl(self.mu_q_alpha[:, 0, :], self.logsigma_q_alpha[:, 0, :], p_mu_0, logsigma_p_0)
         kl_alpha.append(kl_0)
         for t in range(1, self.num_times):
-            alphas[t] = self.reparameterize(self.mu_q_alpha[:, t, :], self.logsigma_q_alpha[:, t, :]) 
-            
+            alphas[t] = self.reparameterize(self.mu_q_alpha[:, t, :], self.logsigma_q_alpha[:, t, :])
+
             p_mu_t = alphas[t-1]
             logsigma_p_t = torch.log(self.delta * torch.ones(self.num_topics, self.rho_size).to(device))
             kl_t = self.get_kl(self.mu_q_alpha[:, t, :], self.logsigma_q_alpha[:, t, :], p_mu_t, logsigma_p_t)
@@ -177,10 +179,10 @@ class DETM(nn.Module):
             logit = self.rho(alpha.view(alpha.size(0)*alpha.size(1), self.rho_size))
         else:
             tmp = alpha.view(alpha.size(0)*alpha.size(1), self.rho_size)
-            logit = torch.mm(tmp, self.rho.permute(1, 0)) 
+            logit = torch.mm(tmp, self.rho.permute(1, 0))
         logit = logit.view(alpha.size(0), alpha.size(1), -1)
         beta = F.softmax(logit, dim=-1)
-        return beta 
+        return beta
 
     def get_nll(self, theta, beta, bows):
         theta = theta.unsqueeze(1)
@@ -189,11 +191,11 @@ class DETM(nn.Module):
         loglik = torch.log(loglik+1e-6)
         nll = -loglik * bows
         nll = nll.sum(-1)
-        return nll  
+        return nll
 
     def forward(self, bows, normalized_bows, times, rnn_inp, num_docs):
         bsz = normalized_bows.size(0)
-        coeff = num_docs / bsz 
+        coeff = num_docs / bsz
         alpha, kl_alpha = self.get_alpha()
         eta, kl_eta = self.get_eta(rnn_inp)
         theta, kl_theta = self.get_theta(eta, normalized_bows, times)
@@ -206,6 +208,29 @@ class DETM(nn.Module):
         nelbo = nll + kl_alpha + kl_eta + kl_theta
         return nelbo, nll, kl_alpha, kl_eta, kl_theta
 
+    def get_optimizer(self, optimizer, lr, wdecay):
+        """
+        Get the model default optimizer
+
+        Args:
+            sefl ([type]): [description]
+        """
+        if optimizer == 'adam':
+            optimizer = optim.Adam(self.parameters(), lr=lr, weight_decay=wdecay)
+        elif optimizer == 'adagrad':
+            optimizer = optim.Adagrad(self.parameters(), lr=lr, weight_decay=wdecay)
+        elif optimizer == 'adadelta':
+            optimizer = optim.Adadelta(self.parameters(), lr=lr, weight_decay=wdecay)
+        elif optimizer == 'rmsprop':
+            optimizer = optim.RMSprop(self.parameters(), lr=lr, weight_decay=wdecay)
+        elif optimizer == 'asgd':
+            optimizer = optim.ASGD(self.parameters(), lr=lr, t0=0, lambd=0., weight_decay=wdecay)
+        else:
+            print('Defaulting to vanilla SGD')
+            optimizer = optim.SGD(self.parameters(), lr=lr)
+        self.optimizer = optimizer
+        return optimizer
+
     def init_hidden(self):
         """Initializes the first hidden state of the RNN used as inference network for \eta.
         """
@@ -213,3 +238,54 @@ class DETM(nn.Module):
         nlayers = self.eta_nlayers
         nhid = self.eta_hidden_size
         return (weight.new_zeros(nlayers, 1, nhid), weight.new_zeros(nlayers, 1, nhid))
+
+    def visualize(self, num_words, vocabulary):
+        """Visualizes topics and embeddings and word usage evolution.
+        """
+        self.eval()
+        with torch.no_grad():
+            alpha = self.mu_q_alpha
+            beta = self.get_beta(alpha)
+            print('beta: ', beta.size())
+            print('\n')
+            print('#'*100)
+            print('Visualize topics...')
+            times = [0, 10, 40]
+            topics_words = []
+            for k in range(self.num_topics):
+                for t in times:
+                    gamma = beta[k, t, :]
+                    top_words = list(gamma.cpu().numpy().argsort()[-num_words+1:][::-1])
+                    topic_words = [vocabulary[a] for a in top_words]
+                    topics_words.append(' '.join(topic_words))
+                    print('Topic {} .. Time: {} ===> {}'.format(k, t, topic_words))
+
+            print('\n')
+            print('Visualize word embeddings ...')
+            queries = ['economic', 'assembly', 'security', 'management', 'debt', 'rights',  'africa']
+            try:
+                embeddings = self.rho.weight  # Vocab_size x E
+            except:
+                embeddings = self.rho         # Vocab_size x E
+            neighbors = []
+            for word in queries:
+                print('word: {} .. neighbors: {}'.format(
+                    word, nearest_neighbors(word, embeddings, vocabulary, num_words, temporal=True)))
+            print('#'*100)
+
+            # print('\n')
+            # print('Visualize word evolution ...')
+            # topic_0 = None ### k
+            # queries_0 = ['woman', 'gender', 'man', 'mankind', 'humankind'] ### v
+
+            # topic_1 = None
+            # queries_1 = ['africa', 'colonial', 'racist', 'democratic']
+
+            # topic_2 = None
+            # queries_2 = ['poverty', 'sustainable', 'trade']
+
+            # topic_3 = None
+            # queries_3 = ['soviet', 'convention', 'iran']
+
+            # topic_4 = None # climate
+            # queries_4 = ['environment', 'impact', 'threats', 'small', 'global', 'climate']
