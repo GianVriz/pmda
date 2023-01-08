@@ -24,7 +24,7 @@ from src.etm import ETM
 from src.utils import nearest_neighbors
 
 
-def main_ETM(dataset, data_path, emb_path, save_path, batch_size=1000, min_df=1,
+def main_ETM(dataset, data_path, emb_path, save_path, batch_size=1000,
              num_topics=50, rho_size=300, emb_size=300, t_hidden_size=800, theta_act='relu', train_embeddings=0,
              lr=0.005, lr_factor=4.0, epochs=20, mode='train', optimizer='adam', seed=2019, enc_drop=0.0, clip=0.0, nonmono=10, wdecay=1.2e-6, anneal_lr=0, bow_norm=1,
              num_words=10, log_interval=2, visualize_every=10, eval_batch_size=1000, load_from='', tc=0, td=0):
@@ -36,7 +36,6 @@ def main_ETM(dataset, data_path, emb_path, save_path, batch_size=1000, min_df=1,
     emb_path         : directory containing word embeddings (str)
     save_path        : path to save results (str)
     batch_size       : input batch size for training (int)
-    min_df           : minimum document frequency (to get the right data) (int)
     ----------------   model-related arguments
     num_topics       : number of topics (int)
     rho_size         : dimension of rho (int)
@@ -66,8 +65,6 @@ def main_ETM(dataset, data_path, emb_path, save_path, batch_size=1000, min_df=1,
     tc               : whether to compute topic coherence or not (int)
     td               : whether to compute topic diversity or not (int)
     """
-    data_path = os.path.join(data_path, 'min_df_{}'.format(min_df))
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     print('\n')
@@ -155,6 +152,7 @@ def main_ETM(dataset, data_path, emb_path, save_path, batch_size=1000, min_df=1,
             'etm_{}_K_{}_Htheta_{}_Optim_{}_Clip_{}_ThetaAct_{}_Lr_{}_Bsz_{}_RhoSize_{}_trainEmbeddings_{}'.format(
             dataset, num_topics, t_hidden_size, optimizer, clip, theta_act,
                 lr, batch_size, rho_size, train_embeddings))
+    print('ckpt:', ckpt)
 
     ## define model and optimizer
     model = ETM(num_topics, vocab_size, t_hidden_size, rho_size, emb_size, theta_act, embeddings, train_embeddings, enc_drop).to(device)
@@ -162,7 +160,6 @@ def main_ETM(dataset, data_path, emb_path, save_path, batch_size=1000, min_df=1,
     print('model: {}'.format(model))
 
     optimizer = model.get_optimizer(optimizer, lr, wdecay)
-
 
     tracemalloc.start()
     if mode == 'train':
@@ -203,7 +200,7 @@ def main_ETM(dataset, data_path, emb_path, save_path, batch_size=1000, min_df=1,
             model = torch.load(f)
         model = model.to(device)
         model.eval()
-
+        
         with torch.no_grad():
             ## get document completion perplexities
             test_ppl = model.evaluate(eval_batch_size, num_docs_valid, num_docs_test, num_docs_test_1, test_1_tokens, test_1_counts,
@@ -215,7 +212,7 @@ def main_ETM(dataset, data_path, emb_path, save_path, batch_size=1000, min_df=1,
             theta_weighted_average = torch.zeros(1, num_topics).to(device)
             cnt = 0
             for idx, indice in enumerate(indices):
-                data_batch = data.get_batch(training_set, indice, device)
+                data_batch = data.get_batch(train_tokens, train_counts, indice, vocab_size, device)
                 sums = data_batch.sum(1).unsqueeze(1)
                 cnt += sums.sum(0).squeeze().cpu().numpy()
                 if bow_norm:
@@ -229,13 +226,16 @@ def main_ETM(dataset, data_path, emb_path, save_path, batch_size=1000, min_df=1,
                 if idx % 100 == 0 and idx > 0:
                     print('batch: {}/{}'.format(idx, len(indices)))
             theta_weighted_average = theta_weighted_average.squeeze().cpu().numpy() / cnt
-            print('\nThe 10 most used topics are {}'.format(theta_weighted_average.argsort()[::-1][:10]))
+            #print('\nThe 10 most used topics are {}'.format(theta_weighted_average.argsort()[::-1]))
+            #print('The weighs are {}'.format(sorted(theta_weighted_average, reverse=True)))
+            print('Most used topics:')
+            for ttt in theta_weighted_average.argsort()[::-1]:
+                print("Topic "+str(ttt).rjust(3)+" :  ", theta_weighted_average[ttt])
 
             ## show topics
             beta = model.get_beta()
-            topic_indices = list(np.random.choice(num_topics, 10)) # 10 random topics
-            print('\n')
-            for k in range(num_topics):#topic_indices:
+            print('\nTop', num_words, 'words per topic:')
+            for k in range(num_topics):
                 gamma = beta[k]
                 top_words = list(gamma.cpu().numpy().argsort()[-num_words+1:][::-1])
                 topic_words = [vocab[a] for a in top_words]

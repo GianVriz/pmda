@@ -26,7 +26,7 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
     np.random.seed(seed)
     random.seed(seed)
 
-    path_save = './' + str(data_path) + '/min_df_' + str(min_df) + '/'
+    path_save = './' + str(data_path) + '/'
     if not os.path.exists(path_save):
         os.makedirs(path_save)
     else:

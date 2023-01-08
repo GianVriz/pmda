@@ -23,7 +23,7 @@ from torch.nn import functional as F
 from src.detm import DETM
 from src.utils import nearest_neighbors, get_topic_coherence
 
-def main_DETM(dataset, data_path, emb_path, save_path, batch_size=1000, min_df=1,
+def main_DETM(dataset, data_path, emb_path, save_path, batch_size=1000,
               num_topics=50, rho_size=300, emb_size=300, t_hidden_size=800, theta_act='relu', train_embeddings=1, eta_nlayers=3, eta_hidden_size=200, delta=0.005,
               lr=0.005, lr_factor=4.0, epochs=100, mode='train', optimizer='adam', seed=28, enc_drop=0.0, eta_dropout=0.0, clip=0.0, nonmono=10, wdecay=1.2e-6, anneal_lr=0, bow_norm=1,
               num_words=20, log_interval=10, visualize_every=1, eval_batch_size=1000, load_from='', tc=0):
@@ -35,7 +35,6 @@ def main_DETM(dataset, data_path, emb_path, save_path, batch_size=1000, min_df=1
     emb_path         : directory containing embeddings (str)
     save_path        : path to save results (str)
     batch_size       : number of documents in a batch for training (int)
-    min_df           : minimum document frequency (to get the right data) (int)
     ----------------   model-related arguments
     num_topics       : number of topics (int)
     rho_size         : dimension of rho (int)
@@ -80,7 +79,7 @@ def main_DETM(dataset, data_path, emb_path, save_path, batch_size=1000, min_df=1
     ## get data
     # 1. vocabulary
     print('Getting vocabulary ...')
-    data_file = os.path.join(data_path, 'min_df_{}'.format(min_df))
+    data_file = data_path
     vocab, train, valid, test = data.get_data(data_file, temporal=True)
     vocab_size = len(vocab)
 
@@ -156,9 +155,9 @@ def main_DETM(dataset, data_path, emb_path, save_path, batch_size=1000, min_df=1
         ckpt = load_from
     else:
         ckpt = os.path.join(save_path,
-            'detm_{}_K_{}_Htheta_{}_Optim_{}_Clip_{}_ThetaAct_{}_Lr_{}_Bsz_{}_RhoSize_{}_L_{}_minDF_{}_trainEmbeddings_{}'.format(
+            'detm_{}_K_{}_Htheta_{}_Optim_{}_Clip_{}_ThetaAct_{}_Lr_{}_Bsz_{}_RhoSize_{}_L_{}_trainEmbeddings_{}'.format(
             dataset, num_topics, t_hidden_size, optimizer, clip, theta_act,
-                lr, batch_size, rho_size, eta_nlayers, min_df, train_embeddings))
+                lr, batch_size, rho_size, eta_nlayers, train_embeddings))
 
     ## define model and optimizer
     if load_from != '':
