@@ -24,7 +24,7 @@ from src.etm import ETM
 from src.utils import nearest_neighbors
 
 
-def main_ETM(dataset, data_path, emb_path, save_path, batch_size=1000,
+def main_ETM(dataset, data_path, emb_file, save_path, model_file, batch_size=1000,
              num_topics=50, rho_size=300, emb_size=300, t_hidden_size=800, theta_act='relu', train_embeddings=0,
              lr=0.005, lr_factor=4.0, epochs=20, mode='train', optimizer='adam', seed=2019, enc_drop=0.0, clip=0.0, nonmono=10, wdecay=1.2e-6, anneal_lr=0, bow_norm=1,
              num_words=10, log_interval=2, visualize_every=10, eval_batch_size=1000, load_from='', tc=0, td=0):
@@ -33,8 +33,9 @@ def main_ETM(dataset, data_path, emb_path, save_path, batch_size=1000,
     ----------------   data and file related arguments
     dataset          : name of corpus (str)
     data_path        : directory containing data (str)
-    emb_path         : directory containing word embeddings (str)
+    emb_file         : word embeddings file, used if train_embeddings=False (str)
     save_path        : path to save results (str)
+    model_file       : model file, saved in save_path (str)
     batch_size       : input batch size for training (int)
     ----------------   model-related arguments
     num_topics       : number of topics (int)
@@ -117,9 +118,8 @@ def main_ETM(dataset, data_path, emb_path, save_path, batch_size=1000,
         embeddings_dim = embeddings.size()
     """
     if not train_embeddings:
-        vect_path = os.path.join(data_path, 'embeddings.pkl')
         vectors = {}
-        with open(emb_path, 'rb') as f:
+        with open(emb_file, 'rb') as f:
             for l in f:
                 line = l.split() # line = l.decode().split()
                 word = line[0]
@@ -148,11 +148,7 @@ def main_ETM(dataset, data_path, emb_path, save_path, batch_size=1000,
     if mode == 'eval':
         ckpt = load_from
     else:
-        ckpt = Path.cwd().joinpath(save_path,
-            'etm_{}_K_{}_Htheta_{}_Optim_{}_Clip_{}_ThetaAct_{}_Lr_{}_Bsz_{}_RhoSize_{}_trainEmbeddings_{}'.format(
-            dataset, num_topics, t_hidden_size, optimizer, clip, theta_act,
-                lr, batch_size, rho_size, train_embeddings))
-    print('ckpt:', ckpt)
+        ckpt = Path.cwd().joinpath(save_path, model_file)
 
     ## define model and optimizer
     model = ETM(num_topics, vocab_size, t_hidden_size, rho_size, emb_size, theta_act, embeddings, train_embeddings, enc_drop).to(device)
@@ -240,7 +236,9 @@ def main_ETM(dataset, data_path, emb_path, save_path, batch_size=1000,
                 top_words = list(gamma.cpu().numpy().argsort()[-num_words+1:][::-1])
                 topic_words = [vocab[a] for a in top_words]
                 print('Topic {}: {}'.format(k, topic_words))
-
+            
+            
+            
             if train_embeddings:
                 ## show etm embeddings
                 try:

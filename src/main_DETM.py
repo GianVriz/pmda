@@ -70,7 +70,7 @@ def main_DETM(dataset, data_path, emb_path, save_path, batch_size=1000,
 
     pca = PCA(n_components=2)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+    
     ## set seed
     np.random.seed(seed)
     torch.backends.cudnn.deterministic = True
