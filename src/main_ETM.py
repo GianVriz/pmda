@@ -14,14 +14,14 @@ import scipy.io
 
 import src.data as data
 
-from torch import nn, optim
+from torch import nn, optim, save as torch_save
 from torch.nn import functional as F
 from pathlib import Path
 from gensim.models.fasttext import FastText as FT_gensim
 import tracemalloc
 
 from src.etm import ETM
-from src.utils import nearest_neighbors
+from src.utils import nearest_neighbors, get_topic_coherence, get_topic_diversity
 
 
 def main_ETM(dataset, data_path, emb_file, save_path, model_file, batch_size=1000,
@@ -183,7 +183,7 @@ def main_ETM(dataset, data_path, emb_file, save_path, model_file, batch_size=100
                 lr = optimizer.param_groups[0]['lr']
                 if anneal_lr and (len(all_val_ppls) > nonmono and val_ppl > min(all_val_ppls[:-nonmono]) and lr > 1e-5):
                     optimizer.param_groups[0]['lr'] /= lr_factor
-            if epoch % visualize_every == 0:
+            if epoch > 0 and epoch % visualize_every == 0:
                 model.visualize(batch_size, epochs, num_words, vocab, True)
             all_val_ppls.append(val_ppl)
         with open(ckpt, 'rb') as f:
@@ -196,11 +196,11 @@ def main_ETM(dataset, data_path, emb_file, save_path, model_file, batch_size=100
             model = torch.load(f)
         model = model.to(device)
         model.eval()
-        
+
         with torch.no_grad():
             ## get document completion perplexities
             test_ppl = model.evaluate(eval_batch_size, num_docs_valid, num_docs_test, num_docs_test_1, test_1_tokens, test_1_counts,
-                                      test_2_tokens, test_2_counts, vocab, bow_norm, train_tokens, 'val', tc, td)
+                                      test_2_tokens, test_2_counts, vocab, bow_norm, train_tokens, 'val', False, False)
             ## get most used topics
             indices = torch.tensor(range(num_docs_train))
             indices = torch.split(indices, batch_size)
@@ -236,9 +236,26 @@ def main_ETM(dataset, data_path, emb_file, save_path, model_file, batch_size=100
                 top_words = list(gamma.cpu().numpy().argsort()[-num_words+1:][::-1])
                 topic_words = [vocab[a] for a in top_words]
                 print('Topic {}: {}'.format(k, topic_words))
-            
-            
-            
+
+            # compute topic coherence and topic diversity
+            beta = beta.data.cpu().numpy()
+            if tc:
+                TC, _ = get_topic_coherence(beta, train_tokens, vocab)
+            else:
+                TC = None
+            if td:
+                TD = get_topic_diversity(beta, 25)
+            else:
+                TD = None
+            # convert torch.tensor to np.array
+            rho = model.rho.cpu().numpy()
+            alpha = model.alphas.weight.cpu().numpy()
+            theta = theta.cpu().numpy()
+            parameters = {'vocab': vocab, 'tc': TC, 'td': TD, 'rho': rho, 'alpha': alpha, "beta": beta, "theta": theta}
+            # save word/topic embeddings, beta, theta
+            torch_save(parameters, ckpt + "_parameters.pt")
+
+
             if train_embeddings:
                 ## show etm embeddings
                 try:

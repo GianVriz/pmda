@@ -20,6 +20,7 @@ def get_topic_diversity(beta, topk):
     n_unique = len(np.unique(list_w))
     TD = n_unique / (topk * num_topics)
     print('Topic diversity is: {}'.format(TD))
+    return TD
 
 def get_document_frequency(data, wi, wj=None):
     if wj is None:
@@ -63,7 +64,9 @@ def get_topic_coherence(beta, data, vocab, temporal=False):
     TC = []
     num_topics = len(beta)
     for k in range(num_topics):
-        print('k: {}/{}'.format(k, num_topics))
+        if k > 0 and k % 10 == 0:
+            print(k)
+        print('-', end='')
         top_10 = list(beta[k].argsort()[-11:][::-1])
         top_words = [vocab[a] for a in top_10]
         TC_k = 0
@@ -88,7 +91,7 @@ def get_topic_coherence(beta, data, vocab, temporal=False):
             # update TC_k
             TC_k += tmp
         TC.append(TC_k)
-    print('counter: ', counter)
+    print('\ncounter: ', counter)
     print('num topics: ', len(TC))
     if not temporal:
         TC = np.mean(TC) / counter

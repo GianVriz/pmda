@@ -234,8 +234,6 @@ class ETM(nn.Module):
         queries = ['africa', 'republic']
 
         ## visualize topics using monte carlo
-        results_file_name = "topic_results_{}_{}.txt".format(batch_size, epochs)
-        results_file_name = Path.cwd().joinpath("results", results_file_name)
         with torch.no_grad():
             print('#'*100)
             print('Visualize topics...')
@@ -246,10 +244,6 @@ class ETM(nn.Module):
                 top_words = list(gamma.cpu().numpy().argsort()[-num_words+1:][::-1])
                 topic_words = [vocabulary[a].strip() for a in top_words]
                 topics_words.append(' '.join(topic_words))
-                with open(results_file_name, "a") as results_file:
-	                results_file.write('Topic {}: {}\n'.format(k, topic_words))
-            with open(results_file_name, "a") as results_file:
-	            results_file.write(10*'#'+'\n') # But this could have been done as a function
 
             if show_emb:
                 ## visualize word embeddings by using V to get nearest neighbors
@@ -269,7 +263,7 @@ class ETM(nn.Module):
     def evaluate(self, eval_batch_size, num_docs_valid, num_docs_test, num_docs_test_1, test_1_tokens, test_1_counts,
                  test_2_tokens, test_2_counts, vocab, bow_norm, train_tokens, source, tc=False, td=False):
         """
-        Compute perplexity on document completion.
+        Compute and returns perplexity on document completion (ppl_dc), topic coherence (tc) and topic diversity (td).
         """
         vocab_size = len(vocab)
 
