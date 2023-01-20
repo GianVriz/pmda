@@ -163,10 +163,6 @@ def main_ETM(dataset, data_path, emb_file, save_path, model_file, batch_size=100
         best_epoch = 0
         best_val_ppl = 1e9
         all_val_ppls = []
-        print('\n')
-        print('Visualizing model quality before training...', epochs)
-        #model.visualize(batch_size, epochs, num_words, vocab, True)
-        print('\n')
         for epoch in range(0, epochs):
             print("I am training for epoch", epoch)
             model.train_for_epoch(epoch, num_docs_train, batch_size, train_tokens, train_counts, vocab_size, bow_norm, clip, log_interval)
