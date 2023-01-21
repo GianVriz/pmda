@@ -8,6 +8,7 @@ import itertools
 from scipy.io import savemat, loadmat
 import string
 import os
+import json
 
 
 def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df=0.7, data_split=[0.85,0.1,0.05], seed=28):
@@ -91,7 +92,7 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
     id2word = dict([(j, w) for j, w in enumerate(vocab)])
     print('  vocabulary after removing words not in train: {}'.format(len(vocab)))
 
-    # Bag-of-Words (BoW) representation dei documenti, i.e.,  docs_tr/docs_ts/docs_va sono liste di liste di id
+    # Bag-of-Words (BoW) representation of the documents, i.e.,  docs_tr/docs_ts/docs_va are lists of lists of id
     docs_tr = [[word2id[w] for w in docs[idx_permute[idx_d]].split() if w in word2id] for idx_d in range(trSize)]
     timestamps_tr = [time2id[timestamps[idx_permute[idx_d]]] for idx_d in range(trSize)]
     docs_ts = [[word2id[w] for w in docs[idx_permute[idx_d+trSize]].split() if w in word2id] for idx_d in range(tsSize)]
@@ -99,6 +100,14 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
     docs_va = [[word2id[w] for w in docs[idx_permute[idx_d+trSize+tsSize]].split() if w in word2id] for idx_d in range(vaSize)]
     timestamps_va = [time2id[timestamps[idx_permute[idx_d+trSize+tsSize]]] for idx_d in range(vaSize)]
     del docs
+
+    # Write document indeces of train, test, validation, and vocabulary of train
+    info_json = {"indices_tr": [idx_permute[idx_d] for idx_d in range(trSize)],
+                 "indices_ts": [idx_permute[idx_d+trSize] for idx_d in range(tsSize)],
+                 "indices_va": [idx_permute[idx_d+trSize+tsSize] for idx_d in range(vaSize)],
+                 "vocab": vocab}
+    with open('info.json', 'w') as f:
+        f.write(json.dumps(info_json, indent = 2))
 
     print('  number of documents (train): {} [this should be equal to {} and {}]'.format(len(docs_tr), trSize, len(timestamps_tr)))
     print('  number of documents (test): {} [this should be equal to {} and {}]'.format(len(docs_ts), tsSize, len(timestamps_ts)))
@@ -117,9 +126,6 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
         return out_docs, out_timestamps
 
     def remove_by_threshold(in_docs, in_timestamps, thr):
-        """
-        rimuovo i documenti con numero di parole
-        """
         out_docs = []
         out_timestamps = []
         for ii, doc in enumerate(in_docs):
@@ -220,6 +226,22 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
     bow_ts_h2 = create_bow(doc_indices_ts_h2, words_ts_h2, n_docs_ts_h2, len(vocab))
     bow_va = create_bow(doc_indices_va, words_va, n_docs_va, len(vocab))
 
+    # Write the vocabulary
+    # with open(path_save + 'vocab.txt', 'w') as f:
+    #     for v in vocab:
+    #         f.write(v + '\n')
+    with open(path_save + 'vocab.pkl', 'wb') as f:
+        pickle.dump(vocab, f)
+    del vocab
+
+    # Write the timestamps
+    # with open(path_save + 'timestamps.txt', 'w') as f:
+    #     for t in time_list:
+    #         f.write(t + '\n')
+    # with open(path_save + 'timestamps.pkl', 'wb') as f:
+    #     pickle.dump(time_list, f)
+
+
     del words_tr
     del words_ts
     del words_ts_h1
@@ -230,22 +252,6 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
     del doc_indices_ts_h1
     del doc_indices_ts_h2
     del doc_indices_va
-
-    # Write the vocabulary and timestamps
-    with open(path_save + 'vocab.txt', 'w') as f:
-        for v in vocab:
-            f.write(v + '\n')
-
-    with open(path_save + 'timestamps.txt', 'w') as f:
-        for t in time_list:
-            f.write(t + '\n')
-
-    with open(path_save + 'vocab.pkl', 'wb') as f:
-        pickle.dump(vocab, f)
-    del vocab
-
-    with open(path_save + 'timestamps.pkl', 'wb') as f:
-        pickle.dump(time_list, f)
 
     # Save timestamps alone
     savemat(path_save + 'bow_tr_timestamps.mat', {'timestamps': timestamps_tr}, do_compression=True)

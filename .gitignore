@@ -1,6 +1,9 @@
 # data folder
 data/
 
+# embeddings folder
+embeddings/
+
 # results folder
 results/
 
