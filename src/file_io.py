@@ -108,19 +108,20 @@ def save_embeddings(emb_model, emb_file='embeddings.txt', vocab=[]):
     if not vocab:
         vocab = model_vocab
 
-    # check if the embeddings for all the words in vocab are available
-    for v in vocab:
-        if v not in model_vocab:
-            raise ValueError('Error: the word embedding of "' + v + '" is not available.')
-
+    c_na, c_a = 0, 0
     with open(emb_file, 'w') as f:
         for v in vocab:
-            vec = list(emb_model.wv[v])
-            f.write(v + ' ')
-            vec_str = ['%.9f' % val for val in vec]
-            vec_str = ' '.join(vec_str)
-            f.write(vec_str + '\n')
-    print('saved embeddings for ' + str(len(vocab)) + ' words!')
+            if v not in model_vocab:
+                c_na += 1
+                print('(' + str(c_na) + ') "' + v + '" is not available.')
+            else:
+                c_a += 1
+                vec = list(emb_model.wv[v])
+                f.write(v + ' ')
+                vec_str = ['%.9f' % val for val in vec]
+                vec_str = ' '.join(vec_str)
+                f.write(vec_str + '\n')
+    print('saved embeddings for ' + str(c_a) + '/' + len(vocab) + ' words!')
 
 
 def load_vocab(vocab_file):
