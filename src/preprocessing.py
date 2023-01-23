@@ -1,15 +1,15 @@
 import csv
-from sklearn.feature_extraction.text import CountVectorizer
+import itertools
+import json
 import numpy as np
+import os
 import pickle
 import random
-from scipy import sparse
-import itertools
-from scipy.io import savemat, loadmat
 import string
-import os
-import json
 
+from scipy import sparse
+from scipy.io import savemat, loadmat
+from sklearn.feature_extraction.text import CountVectorizer
 
 def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df=0.7, data_split=[0.85,0.1,0.05], seed=28):
     """
@@ -38,7 +38,7 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
         # If timestamps are not available, assign all documents to the same timestamp
         timestamps = ['no_timestamps'] * len(docs)
     elif len(docs) != len(timestamps):
-        raise ValueError('"docs" and "timestamps" not valid: must be lists of the same length.')
+        raise ValueError('"docs" and "timestamps" not valid: they must be lists of the same length.')
 
     # Create count vectorizer
     print('counting document frequency of words...')
@@ -86,28 +86,29 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
     del cvz
     idx_permute = np.random.permutation(num_docs).astype(int)
 
-    # Remove words not in train_data
+    # Remove words not in train corpus
     vocab = list(set([w for idx_d in range(trSize) for w in docs[idx_permute[idx_d]].split() if w in word2id]))
     word2id = dict([(w, j) for j, w in enumerate(vocab)])
     id2word = dict([(j, w) for j, w in enumerate(vocab)])
     print('  vocabulary after removing words not in train: {}'.format(len(vocab)))
 
-    # Bag-of-Words (BoW) representation of the documents, i.e.,  docs_tr/docs_ts/docs_va are lists of lists of id
+    # Bag-of-Words (BoW) representation of the documents, i.e., docs_tr/docs_ts/docs_va are lists of lists of id
     docs_tr = [[word2id[w] for w in docs[idx_permute[idx_d]].split() if w in word2id] for idx_d in range(trSize)]
-    timestamps_tr = [time2id[timestamps[idx_permute[idx_d]]] for idx_d in range(trSize)]
     docs_ts = [[word2id[w] for w in docs[idx_permute[idx_d+trSize]].split() if w in word2id] for idx_d in range(tsSize)]
-    timestamps_ts = [time2id[timestamps[idx_permute[idx_d+trSize]]] for idx_d in range(tsSize)]
     docs_va = [[word2id[w] for w in docs[idx_permute[idx_d+trSize+tsSize]].split() if w in word2id] for idx_d in range(vaSize)]
-    timestamps_va = [time2id[timestamps[idx_permute[idx_d+trSize+tsSize]]] for idx_d in range(vaSize)]
-    del docs
 
-    # Write document indeces of train, test, validation, and vocabulary of train
-    info_json = {"indices_tr": [idx_permute[idx_d] for idx_d in range(trSize)],
-                 "indices_ts": [idx_permute[idx_d+trSize] for idx_d in range(tsSize)],
-                 "indices_va": [idx_permute[idx_d+trSize+tsSize] for idx_d in range(vaSize)],
-                 "vocab": vocab}
-    with open('info.json', 'w') as f:
-        f.write(json.dumps(info_json, indent = 2))
+    # timestamps of the documents, i.e., timestamps_tr/timestamps_ts/timestamps_va are lists of id
+    timestamps_tr = [time2id[timestamps[idx_permute[idx_d]]] for idx_d in range(trSize)]
+    timestamps_ts = [time2id[timestamps[idx_permute[idx_d+trSize]]] for idx_d in range(tsSize)]
+    timestamps_va = [time2id[timestamps[idx_permute[idx_d+trSize+tsSize]]] for idx_d in range(vaSize)]
+
+    # indices of the documents, i.e., indices_tr/indices_ts/indices_va are lists of integers
+    indices_tr = [int(idx_permute[idx_d]) for idx_d in range(trSize)]
+    indices_ts = [int(idx_permute[idx_d+trSize]) for idx_d in range(tsSize)]
+    indices_va = [int(idx_permute[idx_d+trSize+tsSize]) for idx_d in range(vaSize)]
+
+    # Remove unused variables
+    del docs
 
     print('  number of documents (train): {} [this should be equal to {} and {}]'.format(len(docs_tr), trSize, len(timestamps_tr)))
     print('  number of documents (test): {} [this should be equal to {} and {}]'.format(len(docs_ts), tsSize, len(timestamps_ts)))
@@ -116,30 +117,34 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
     # Remove empty documents
     print('removing empty documents...')
 
-    def remove_empty(in_docs, in_timestamps):
+    def remove_empty(in_docs, in_timestamps, in_indices):
         out_docs = []
         out_timestamps = []
+        out_indices = []
         for ii, doc in enumerate(in_docs):
             if(doc!=[]):
                 out_docs.append(doc)
                 out_timestamps.append(in_timestamps[ii])
-        return out_docs, out_timestamps
+                out_indices.append(in_indices[ii])
+        return out_docs, out_timestamps, out_indices
 
-    def remove_by_threshold(in_docs, in_timestamps, thr):
+    def remove_by_threshold(in_docs, in_timestamps, in_indices, thr):
         out_docs = []
         out_timestamps = []
+        out_indices = []
         for ii, doc in enumerate(in_docs):
             if(len(doc)>thr):
                 out_docs.append(doc)
                 out_timestamps.append(in_timestamps[ii])
-        return out_docs, out_timestamps
+                out_indices.append(in_indices[ii])
+        return out_docs, out_timestamps, out_indices
 
-    docs_tr, timestamps_tr = remove_empty(docs_tr, timestamps_tr)
-    docs_ts, timestamps_ts = remove_empty(docs_ts, timestamps_ts)
-    docs_va, timestamps_va = remove_empty(docs_va, timestamps_va)
-
+    # Remove empty documents, i.e. they contain only words not in the vocabulary of train corpus
+    docs_tr, timestamps_tr, indices_tr = remove_empty(docs_tr, timestamps_tr, indices_tr)
+    docs_ts, timestamps_ts, indices_ts = remove_empty(docs_ts, timestamps_ts, indices_ts)
+    docs_va, timestamps_va, indices_va = remove_empty(docs_va, timestamps_va, indices_va)
     # Remove test documents with length=1 (or less)
-    docs_ts, timestamps_ts = remove_by_threshold(docs_ts, timestamps_ts, 1)
+    docs_ts, timestamps_ts, indices_ts = remove_by_threshold(docs_ts, timestamps_ts, indices_ts, 1)
 
     # Split documents in test set in 2 halves
     print('splitting test documents in 2 halves...')
@@ -149,6 +154,16 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
     # ----------------------------------------------------------------
     # DOCUMENT PRE-PROCESSING ENDS HERE: NOW WE JUST HAVE TO SAVE THEM
     # ----------------------------------------------------------------
+    
+    print('saving indices...')
+    # Write information useful for exploratory analysis
+    info_json = {"indices_tr": indices_tr,
+                 "indices_ts": indices_ts,
+                 "indices_va": indices_va,
+                 "docs_tr": docs_tr,
+                 "vocab_tr": vocab}
+    with open(path_save + 'info.json', 'w') as f:
+        f.write(json.dumps(info_json, indent = 2))
 
     # Getting lists of words and doc_indices
     print('creating lists of words...')
@@ -241,7 +256,7 @@ def preprocessing(data_path, docs, timestamps=[], stopwords=[], min_df=1, max_df
     # with open(path_save + 'timestamps.pkl', 'wb') as f:
     #     pickle.dump(time_list, f)
 
-
+    # Remove unused variables
     del words_tr
     del words_ts
     del words_ts_h1
