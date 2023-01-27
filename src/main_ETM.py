@@ -21,13 +21,14 @@ from gensim.models.fasttext import FastText as FT_gensim
 import tracemalloc
 
 from src.etm import ETM
+from src.file_io import load_embeddings
 from src.utils import nearest_neighbors, get_topic_coherence, get_topic_diversity
 
 
 def main_ETM(dataset, data_path, emb_file, save_path, model_file, batch_size=1000,
              num_topics=50, rho_size=300, emb_size=300, t_hidden_size=800, theta_act='relu', train_embeddings=0,
-             lr=0.005, lr_factor=4.0, epochs=20, mode='train', optimizer='adam', seed=2019, enc_drop=0.0, clip=0.0, nonmono=10, wdecay=1.2e-6, anneal_lr=0, bow_norm=1,
-             num_words=10, log_interval=2, visualize_every=10, eval_batch_size=1000, load_from='', tc=0, td=0):
+             lr=0.005, lr_factor=4.0, epochs=20, mode='train', optimizer='adam', seed=28, enc_drop=0.0, clip=0.0, nonmono=10, wdecay=1.2e-6, anneal_lr=0, bow_norm=1,
+             num_words=10, log_interval=2, visualize_every=100000, eval_batch_size=1000, load_from='', tc=0, td=0):
     """
     Args:
     ----------------   data and file related arguments
@@ -74,33 +75,26 @@ def main_ETM(dataset, data_path, emb_file, save_path, model_file, batch_size=100
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
 
+    print('=*'*100)
+    print('Training an Embedded Topic Model on ' + dataset.upper())
+    print('=*'*100)
+
     ## get data
     # 1. vocabulary
-    #vocab, training_set, valid, test_1, test_2 = get_data(os.path.join(data_path))
-    #vocab_size = len(vocab)
-    # ----
     vocab, train, valid, test = data.get_data(os.path.join(data_path))
     vocab_size = len(vocab)
 
     # 1. training data
-    #num_docs_train = training_set.shape[0]
-    # ----
     train_tokens = train['tokens']
     train_counts = train['counts']
     num_docs_train = len(train_tokens)
 
     # 2. dev set
-    #num_docs_valid = valid.shape[0]
-    # ----
     valid_tokens = valid['tokens']
     valid_counts = valid['counts']
     num_docs_valid = len(valid_tokens)
 
     # 3. test data
-    #num_docs_test = test_1.shape[0] + test_2.shape[0]
-    #num_docs_test_1 = test_1.shape[0]
-    #num_docs_test_2 = test_2.shape[0]
-    # ----
     test_tokens = test['tokens']
     test_counts = test['counts']
     num_docs_test = len(test_tokens)
@@ -112,34 +106,10 @@ def main_ETM(dataset, data_path, emb_file, save_path, model_file, batch_size=100
     num_docs_test_2 = len(test_2_tokens)
 
     embeddings = None
-    """
     if not train_embeddings:
-        embeddings = data.read_embedding_matrix(vocab, device, load_trainned=False)
-        embeddings_dim = embeddings.size()
-    """
-    if not train_embeddings:
-        vectors = {}
-        with open(emb_file, 'rb') as f:
-            for l in f:
-                line = l.split() # line = l.decode().split()
-                word = line[0]
-                if word in vocab:
-                    vect = np.array(line[1:]).astype(np.float)
-                    vectors[word] = vect
-        embeddings = np.zeros((vocab_size, emb_size))
-        words_found = 0
-        for i, word in enumerate(vocab):
-            try:
-                embeddings[i] = vectors[word]
-                words_found += 1
-            except KeyError:
-                embeddings[i] = np.random.normal(scale=0.6, size=(emb_size, ))
+        embeddings = load_embeddings(emb_file, emb_size, vocab)
         embeddings = torch.from_numpy(embeddings).to(device)
         embeddings_dim = embeddings.size()
-
-    print('=*'*100)
-    print('Training an Embedded Topic Model on ' + dataset.upper())
-    print('=*'*100)
 
     ## define checkpoint
     if not os.path.exists(save_path):
@@ -153,7 +123,7 @@ def main_ETM(dataset, data_path, emb_file, save_path, model_file, batch_size=100
     ## define model and optimizer
     model = ETM(num_topics, vocab_size, t_hidden_size, rho_size, emb_size, theta_act, embeddings, train_embeddings, enc_drop).to(device)
 
-    print('model: {}'.format(model))
+    print('ETM architecture: {}'.format(model))
 
     optimizer = model.get_optimizer(optimizer, lr, wdecay)
 
@@ -200,6 +170,7 @@ def main_ETM(dataset, data_path, emb_file, save_path, model_file, batch_size=100
             ## get most used topics
             indices = torch.tensor(range(num_docs_train))
             indices = torch.split(indices, batch_size)
+            theta_tr = np.array([], dtype=np.int64).reshape(0,num_topics)
             thetaAvg = torch.zeros(1, num_topics).to(device)
             theta_weighted_average = torch.zeros(1, num_topics).to(device)
             cnt = 0
@@ -212,6 +183,7 @@ def main_ETM(dataset, data_path, emb_file, save_path, model_file, batch_size=100
                 else:
                     normalized_data_batch = data_batch
                 theta, _ = model.get_theta(normalized_data_batch)
+                theta_tr = np.vstack([theta_tr, theta.cpu().numpy()])
                 thetaAvg += theta.sum(0).unsqueeze(0) / num_docs_train
                 weighed_theta = sums * theta
                 theta_weighted_average += weighed_theta.sum(0).unsqueeze(0)
@@ -246,8 +218,7 @@ def main_ETM(dataset, data_path, emb_file, save_path, model_file, batch_size=100
             # convert torch.tensor to np.array
             rho = model.rho.cpu().numpy()
             alpha = model.alphas.weight.cpu().numpy()
-            theta = theta.cpu().numpy()
-            parameters = {'vocab': vocab, 'tc': TC, 'td': TD, 'rho': rho, 'alpha': alpha, "beta": beta, "theta": theta}
+            parameters = {'vocab': vocab, 'tc': TC, 'td': TD, 'rho': rho, 'alpha': alpha, "beta": beta, "theta": theta_tr}
             # save word/topic embeddings, beta, theta
             torch_save(parameters, ckpt + "_parameters.pt")
 
