@@ -97,9 +97,9 @@ def load_un_general_debates(data_path, flag_split_by_paragraph=False):
     return docs, timestamps
 
 
-def save_embeddings(emb_model, emb_file='embeddings.txt', vocab=[]):
+def save_embeddings(emb_model, emb_file, vocab=[]):
     """
-    emb_model : dictionary containing the embeddings
+    emb_model : word2vec format variable
     emb_file  : file to save the word embeddings (.txt)
     vocab     : list of string specifying the words to save in the emb_file
     """
@@ -121,7 +121,36 @@ def save_embeddings(emb_model, emb_file='embeddings.txt', vocab=[]):
                 vec_str = ['%.9f' % val for val in vec]
                 vec_str = ' '.join(vec_str)
                 f.write(vec_str + '\n')
-    print('saved embeddings for ' + str(c_a) + '/' + len(vocab) + ' words!')
+    print('saved embeddings for ' + str(c_a) + '/' + str(len(vocab)) + ' words!')
+
+
+def load_embeddings(emb_file, emb_size, vocab):
+    """
+    emb_file : file created with 'save_embeddings' (.txt)
+    emb_size : dimension of word embeddings
+    vocab    : list of string specifying the words to load
+    """
+    print('loading word embeddings:')
+    vectors = {}
+    with open(emb_file, 'rb') as f:
+        for l in f:
+            line = l.decode('latin-1').split()
+            word = line[0]
+            if word in vocab:
+                vect = np.array(line[1:]).astype(np.float)
+                vectors[word] = vect
+    embeddings = np.zeros((len(vocab), emb_size))
+    words_found, words_sampled = 0, 0
+    for i, word in enumerate(vocab):
+        try:
+            embeddings[i] = vectors[word]
+            words_found += 1
+        except KeyError:
+            embeddings[i] = np.random.normal(scale=0.6, size=(emb_size, ))
+            words_sampled += 1
+    print('words_found   ', words_found, '/',  words_found+words_sampled, sep='')
+    print('words_sampled ', words_sampled, '/',  words_found+words_sampled, sep='')
+    return embeddings
 
 
 def load_vocab(vocab_file):

@@ -21,9 +21,10 @@ from torch import nn
 from torch.nn import functional as F
 
 from src.detm import DETM
+from src.file_io import load_embeddings
 from src.utils import nearest_neighbors, get_topic_coherence
 
-def main_DETM(dataset, data_path, emb_path, save_path, batch_size=1000,
+def main_DETM(dataset, data_path, emb_file, save_path, model_file, batch_size=1000,
               num_topics=50, rho_size=300, emb_size=300, t_hidden_size=800, theta_act='relu', train_embeddings=1, eta_nlayers=3, eta_hidden_size=200, delta=0.005,
               lr=0.005, lr_factor=4.0, epochs=100, mode='train', optimizer='adam', seed=28, enc_drop=0.0, eta_dropout=0.0, clip=0.0, nonmono=10, wdecay=1.2e-6, anneal_lr=0, bow_norm=1,
               num_words=20, log_interval=10, visualize_every=1, eval_batch_size=1000, load_from='', tc=0):
@@ -32,8 +33,9 @@ def main_DETM(dataset, data_path, emb_path, save_path, batch_size=1000,
     ----------------   data and file related arguments
     dataset          : name of corpus (str)
     data_path        : directory containing data (str)
-    emb_path         : directory containing embeddings (str)
+    emb_file         : word embeddings file, used if train_embeddings=False (str)
     save_path        : path to save results (str)
+    model_file       : model file, saved in save_path (str)
     batch_size       : number of documents in a batch for training (int)
     ----------------   model-related arguments
     num_topics       : number of topics (int)
@@ -70,11 +72,16 @@ def main_DETM(dataset, data_path, emb_path, save_path, batch_size=1000,
 
     pca = PCA(n_components=2)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
+
     ## set seed
     np.random.seed(seed)
     torch.backends.cudnn.deterministic = True
     torch.manual_seed(seed)
+
+    print('\n')
+    print('=*'*100)
+    print('Training a Dynamic Embedded Topic Model on ' + dataset.upper())
+    print('=*'*100)
 
     ## get data
     # 1. vocabulary
@@ -122,30 +129,11 @@ def main_DETM(dataset, data_path, emb_path, save_path, batch_size=1000,
 
     ## get embeddings
     print('Getting embeddings ...')
-    vect_path = os.path.join(data_path, 'embeddings.pkl')
-    vectors = {}
-    with open(emb_path, 'rb') as f:
-        for l in f:
-            line = l.split()
-            word = line[0]
-            if word in vocab:
-                vect = np.array(line[1:]).astype(np.float)
-                vectors[word] = vect
-    embeddings = np.zeros((vocab_size, emb_size))
-    words_found = 0
-    for i, word in enumerate(vocab):
-        try:
-            embeddings[i] = vectors[word]
-            words_found += 1
-        except KeyError:
-            embeddings[i] = np.random.normal(scale=0.6, size=(emb_size, ))
-    embeddings = torch.from_numpy(embeddings).to(device)
-    embeddings_dim = embeddings.size()
-
-    print('\n')
-    print('=*'*100)
-    print('Training a Dynamic Embedded Topic Model on ' + dataset.upper())
-    print('=*'*100)
+    embeddings = None
+    if not train_embeddings:
+        embeddings = load_embeddings(emb_file, emb_size, vocab)
+        embeddings = torch.from_numpy(embeddings).to(device)
+        embeddings_dim = embeddings.size()
 
     ## define checkpoint
     if not os.path.exists(save_path):
@@ -154,10 +142,7 @@ def main_DETM(dataset, data_path, emb_path, save_path, batch_size=1000,
     if mode == 'eval':
         ckpt = load_from
     else:
-        ckpt = os.path.join(save_path,
-            'detm_{}_K_{}_Htheta_{}_Optim_{}_Clip_{}_ThetaAct_{}_Lr_{}_Bsz_{}_RhoSize_{}_L_{}_trainEmbeddings_{}'.format(
-            dataset, num_topics, t_hidden_size, optimizer, clip, theta_act,
-                lr, batch_size, rho_size, eta_nlayers, train_embeddings))
+        ckpt = Path.cwd().joinpath(save_path, model_file)
 
     ## define model and optimizer
     if load_from != '':
