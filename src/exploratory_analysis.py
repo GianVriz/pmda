@@ -1,6 +1,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly.express as px
+import seaborn as sns
+
+from collections import Counter
+from PIL import Image
+from wordcloud import WordCloud
    
 
 def most_used_words(docs_bow, num_best_words=15):
@@ -49,4 +54,21 @@ def top_authors(corpus, num_best_authors=15):
     plt.ylabel('Author', fontsize=16)
     plt.xlabel('Articles', fontsize=16)
     plt.title('Authors with most published articles', fontsize=16)
+    plt.show()
+    
+    
+def wordcloud_corpus(docs_bow):
+    docs_bowf = [item for sublist in docs_bow for item in sublist]
+    docs_bowf_count = Counter(docs_bowf)
+
+    tot_dword = dict(sorted(docs_bowf_count.items(), key = lambda item: item[1]))
+    wc = WordCloud(background_color='white',
+                   mask=np.array(Image.open('images/guardian.png')),
+                   contour_width=30,
+                   colormap='Blues',
+                   contour_color='dodgerblue').generate_from_frequencies(tot_dword)
+
+    plt.figure(figsize = (12,12))
+    plt.imshow(wc, interpolation='bilinear', aspect='auto')
+    plt.axis('off')
     plt.show()
