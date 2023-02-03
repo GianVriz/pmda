@@ -2,32 +2,31 @@
 
 from __future__ import print_function
 
-import argparse
-import torch
-import pickle
+import math
+import matplotlib.pyplot as plt
 import numpy as np
 import os
-import math
+import pickle
 import random
-import sys
-import matplotlib.pyplot as plt
-import seaborn as sns
 import scipy.io
+import seaborn as sns
+import sys
+import torch
 
-import src.data as data
-
+from pathlib import Path
 from sklearn.decomposition import PCA
-from torch import nn
+from torch import nn, save as torch_save
 from torch.nn import functional as F
 
+import src.data as data
 from src.detm import DETM
 from src.file_io import load_embeddings
-from src.utils import nearest_neighbors, get_topic_coherence
+from src.utils import get_topic_coherence, nearest_neighbors
 
 def main_DETM(dataset, data_path, emb_file, save_path, model_file, batch_size=1000,
               num_topics=50, rho_size=300, emb_size=300, t_hidden_size=800, theta_act='relu', train_embeddings=1, eta_nlayers=3, eta_hidden_size=200, delta=0.005,
               lr=0.005, lr_factor=4.0, epochs=100, mode='train', optimizer='adam', seed=28, enc_drop=0.0, eta_dropout=0.0, clip=0.0, nonmono=10, wdecay=1.2e-6, anneal_lr=0, bow_norm=1,
-              num_words=20, log_interval=10, visualize_every=1, eval_batch_size=1000, load_from='', tc=0):
+              num_words=20, log_interval=10, visualize_every=100000, eval_batch_size=1000, load_from='', tc=0):
     """
     Args:
     ----------------   data and file related arguments
@@ -354,7 +353,6 @@ def main_DETM(dataset, data_path, emb_file, save_path, model_file, batch_size=10
             alpha = model.mu_q_alpha
             beta = model.get_beta(alpha)
             print('beta: ', beta.size())
-
             print('\n')
             print('#'*100)
             print('Get topic diversity...')
@@ -363,25 +361,27 @@ def main_DETM(dataset, data_path, emb_file, save_path, model_file, batch_size=10
             for tt in range(num_times):
                 TD_all[tt] = _diversity_helper(beta[:, tt, :], num_tops)
             TD = np.mean(TD_all)
-            print('Topic Diversity is: {}'.format(TD))
-
+            print('Topic Diversity is: {}'.format(TD_all))
+            print(' The mean value is: {}'.format(TD))
             print('\n')
             print('Get topic coherence...')
-            print('train_tokens: ', train_tokens[0])
-            TC_all = []
+            # print('train_tokens: ', train_tokens[0])
+            TC_all = np.zeros((num_times,))
             cnt_all = []
             for tt in range(num_times):
-                tc, cnt = get_topic_coherence(beta[:, tt, :].cpu().numpy(), train_tokens, vocab, temporal=True)
-                TC_all.append(tc)
+                TC_all[[tt]], cnt = get_topic_coherence(beta[:, tt, :].cpu().numpy(), train_tokens, vocab)
                 cnt_all.append(cnt)
-            print('TC_all: ', TC_all)
-            TC_all = torch.tensor(TC_all)
-            print('TC_all: ', TC_all.size())
+            TC = np.mean(TC_all)
+            print('Topic Coherence is: {}'.format(TC_all))
+            print(' The mean value is: {}'.format(TC))
             print('\n')
             print('Get topic quality...')
-            quality = tc * diversity
-            print('Topic Quality is: {}'.format(quality))
+            TQ_all = TD_all * TC_all
+            TQ = np.mean(TQ_all)
+            print('Topic Quality is: {}'.format(TQ_all))
+            print(' The mean value is: {}'.format(TQ))
             print('#'*100)
+        return TD_all, TC_all, TQ_all
 
     if mode == 'train':
         ## train model on data by looping through multiple epochs
@@ -410,14 +410,14 @@ def main_DETM(dataset, data_path, emb_file, save_path, model_file, batch_size=10
         model = model.to(device)
         model.eval()
         with torch.no_grad():
-            print('saving topic matrix beta...')
-            alpha = model.mu_q_alpha
-            beta = model.get_beta(alpha).cpu().numpy()
-            scipy.io.savemat(ckpt+'_beta.mat', {'values': beta}, do_compression=True)
-            if train_embeddings:
-                print('saving word embedding matrix rho...')
-                rho = model.rho.weight.cpu().numpy()
-                scipy.io.savemat(ckpt+'_rho.mat', {'values': rho}, do_compression=True)
+            #print('saving topic matrix beta...')
+            #alpha = model.mu_q_alpha
+            #beta = model.get_beta(alpha).cpu().numpy()
+            #scipy.io.savemat(str(ckpt)+'_beta.mat', {'values': beta}, do_compression=True)
+            #if train_embeddings:
+            #    print('saving word embedding matrix rho...')
+            #    rho = model.rho.weight.cpu().numpy()
+            #    scipy.io.savemat(ckpt+'_rho.mat', {'values': rho}, do_compression=True)
             print('computing validation perplexity...')
             val_ppl = get_completion_ppl('val')
             print('computing test perplexity...')
@@ -427,16 +427,19 @@ def main_DETM(dataset, data_path, emb_file, save_path, model_file, batch_size=10
             model = torch.load(f)
         model = model.to(device)
 
-        print('saving alpha...')
-        with torch.no_grad():
-            alpha = model.mu_q_alpha.cpu().numpy()
-            scipy.io.savemat(ckpt+'_alpha.mat', {'values': alpha}, do_compression=True)
-
         print('computing validation perplexity...')
         val_ppl = get_completion_ppl('val')
         print('computing test perplexity...')
         test_ppl = get_completion_ppl('test')
         print('computing topic coherence and topic diversity...')
-        get_topic_quality()
-        print('visualizing topics and embeddings...')
-        self.visualize(num_words, vocabulary)
+        TD, TC, TQ = get_topic_quality()
+
+        # convert torch.tensor to np.array
+        with torch.no_grad():
+            rho = model.rho.cpu().numpy()
+            alpha = model.mu_q_alpha
+            beta = model.get_beta(alpha).cpu().numpy()
+            alpha = alpha.cpu().numpy()
+            parameters = {'vocab': vocab, 'tc': TC, 'td': TD, 'tq': TQ, 'rho': rho, 'alpha': alpha, 'beta': beta}
+            # save word/topic embeddings, beta, theta
+            torch_save(parameters, ckpt + "_parameters.pt")

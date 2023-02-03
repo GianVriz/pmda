@@ -58,7 +58,7 @@ def _reparameterize(mu, logvar, num_samples):
     res = eps.mul_(std).add_(mu)
     return res
 
-def get_topic_coherence(beta, data, vocab, temporal=False):
+def get_topic_coherence(beta, data, vocab):
     D = len(data) ## number of docs...data is list of documents
     print('D: ', D)
     TC = []
@@ -93,8 +93,7 @@ def get_topic_coherence(beta, data, vocab, temporal=False):
         TC.append(TC_k)
     print('\ncounter: ', counter)
     print('num topics: ', len(TC))
-    if not temporal:
-        TC = np.mean(TC) / counter
+    TC = np.mean(TC) / counter
     print('Topic Coherence is: {}'.format(TC))
     return TC, counter
 

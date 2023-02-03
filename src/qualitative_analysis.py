@@ -62,24 +62,24 @@ def visualize_top_words(words, beta, rho, colours, alt_colour='#888888', topword
                        'Y-axis': np.array(tsne_topK[:, 1]),
                        'Colours': np.array(colours2)},
                       index = range(tsne_topK.shape[0]))
-    df['Topic'] = pd.factorize(df['Colours'])[0]
+    df['topic'] = pd.factorize(df['Colours'])[0]
     # interactive plot
-    selection = alt.selection_multi(fields=['Topic'], toggle='true')
+    selection = alt.selection_multi(fields=['topic'], toggle='true')
 
     chart = alt.Chart(df).mark_circle(size = 50).encode(
-        x = alt.X('X-axis', axis=alt.Axis(title = 'X-axis')),
-        y = alt.Y('Y-axis', axis=alt.Axis(title = 'Y-axis')),
-        color = alt.condition(selection, alt.Color('Topic:N', 
+        x = alt.X('X-axis', axis=alt.Axis(title='')),
+        y = alt.Y('Y-axis', axis=alt.Axis(title='')),
+        color = alt.condition(selection, alt.Color('topic:N', 
                                                    legend=None, 
-                                                   scale=alt.Scale(domain = list(df['Topic']), range=colours)),
+                                                   scale=alt.Scale(domain = list(df['topic']), range=colours)),
                               alt.value(alt_colour))
     ).properties(title="TSNE dimensionality reduction", width=800, height = 350).add_selection(selection).interactive()
 
     legend = alt.Chart(df).mark_point(filled = True, size = 200).encode(
-        y = alt.Y('Topic', axis = alt.Axis(orient = 'right')),
-        color = alt.condition(selection, alt.Color('Topic:N',
+        y = alt.Y('topic', axis = alt.Axis(orient = 'right')),
+        color = alt.condition(selection, alt.Color('topic:N',
                                                  legend = None,
-                                                 scale = alt.Scale(domain = list(df['Topic']), range = colours)),
+                                                 scale = alt.Scale(domain = list(df['topic']), range = colours)),
                             alt.value(alt_colour))
     ).add_selection(selection)
 
