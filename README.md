@@ -33,23 +33,36 @@ jupyter notebook
 The core of the project is `main.ipynb`, which allows to pre-process and analyze a collection of documents, from now on called *corpus*, using topic modeling techniques. The notebook is divided into 8 sections as follows:
 
 1. Introduction
-2. Pre-processing of the corpus
-3. Exploratory analysis of the processed corpus
-4. Estimation of the topic models:
-	  1. Latent Dirichlet Allocation (LDA)
-	  2. Dynamic Topic Model (DTM)
-	  3. Embedded Topic Model (ETM)
-	  4. Dynamic Embedded Topic Model (DETM)
-5. Model comparison:
-	  1. Quantitative analysis
-	  2. Qualitative analysis
-6. Conclusions
+2. Guardian dataset
+	1. Download using API
+	2. Selection of the variable of interest
+	3. Pre-processing of the texts
+3. Exploratory data analysis
+4. Word embeddings
+	1. Random embeddings
+	2. Word2vec on train corpus
+	3. FastText on train corpus
+	4. Google’s Word2vec
+	5. Stanford’s GloVe
+5. Embedded Topic Model
+6. Model comparison
+	1. Quantitative analysis
+	2. Qualitative analysis
+7. Dynamic Embedded Topic Model
+8. Conclusions
+	1. Future work
 
 The repository also includes the following folders:
-* *[docs](https://github.com/giovannitoto/pmda/tree/master/docs)* \
-  It contains pdf files of the four articles in which the topic models are introduced.
+* *[data](https://github.com/giovannitoto/pmda/tree/master/data)* \
+  It contains files related to the corpus and its pre-processing.
+* *[embeddings](https://github.com/giovannitoto/pmda/tree/master/embeddings)* \
+  It contains files related to word-embeddings.
+* *[images](https://github.com/giovannitoto/pmda/tree/master/images)* \
+  It contains images used in `main.ipynb`.
+* *[results](https://github.com/giovannitoto/pmda/tree/master/results)* \
+  It contains the estimated topic models.
 * *[src](https://github.com/giovannitoto/pmda/tree/master/src)* \
-  It contains an adaptation of the code that accompanies the papers titled "The Dynamic Embedded Topic Model" and "Topic Modeling in Embedding Spaces" by Adji B. Dieng, Francisco J. R. Ruiz, and David M. Blei. \
+  It contains the modules imported by `main.ipynb`; this is partially an adaptation of the code that accompanies the papers titled "Topic Modeling in Embedding Spaces" and "The Dynamic Embedded Topic Model" by Adji B. Dieng, Francisco J. R. Ruiz, and David M. Blei. \
   First paper original GitHub repository: https://github.com/adjidieng/ETM. \
 	Second paper original GitHub repository: https://github.com/adjidieng/DETM.
 
