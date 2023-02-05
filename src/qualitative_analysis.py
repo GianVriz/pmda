@@ -86,3 +86,22 @@ def visualize_top_words(words, beta, rho, colours, alt_colour='#888888', topword
     background = (alt.Chart(df).mark_rect(color='white', opacity=0.09))
 
     return background + chart | legend
+
+
+def visualize_top_words_evolution(topic, beta, vocab, timestamps, topwords=5):
+    topics, ntimestamps, vocab_size = beta.shape
+    # selecting words to show in the plot
+    beta_sum = np.sum(beta, axis=1)
+    topK = np.argsort(-1 * beta_sum[topic,])[0:topwords]
+    # plot
+    fig, ax = plt.subplots(figsize=(12,6))
+    for label in (ax.get_xticklabels() + ax.get_yticklabels()):
+        label.set_fontsize(14)
+    for tw in topK:
+        plt.plot(range(ntimestamps), beta[topic, :, tw], label=vocab[tw], marker='o')
+    plt.xlabel('year', fontsize=16)
+    plt.ylabel('weight', fontsize=16)
+    plt.xticks(range(ntimestamps), timestamps)
+    plt.title('Evolution of top words in topic ' + str(topic), fontsize=16)
+    plt.legend()
+    plt.show()
