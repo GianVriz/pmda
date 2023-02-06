@@ -56,7 +56,7 @@ The repository also includes the following folders:
 * *[data](https://github.com/giovannitoto/pmda/tree/master/data)* \
   It contains files related to the corpus and its pre-processing.
 * *[embeddings](https://github.com/giovannitoto/pmda/tree/master/embeddings)* \
-  It contains files related to word-embeddings.
+  It contains files related to word embeddings.
 * *[images](https://github.com/giovannitoto/pmda/tree/master/images)* \
   It contains images used in `main.ipynb`.
 * *[results](https://github.com/giovannitoto/pmda/tree/master/results)* \
